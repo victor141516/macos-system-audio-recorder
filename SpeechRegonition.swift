@@ -2,38 +2,38 @@ import Foundation
 import Speech
 import AVFoundation
 
-// Función para imprimir la ayuda
+// Function to print help
 func printHelp() {
     fputs("""
-    Uso: programa [opciones]
+    Usage: program [options]
     
-    Opciones:
-      -l, --language CÓDIGO   Especifica el idioma para el reconocimiento de voz (ej: es-ES, en-US)
-      -n, --newline          Añade saltos de línea después de cada segmento de texto
-      -h, --help             Muestra esta ayuda
+    Options:
+      -l, --language CODE    Specifies the language for voice recognition (e.g., es-ES, en-US)
+      -n, --newline         Adds line breaks after each text segment
+      -h, --help           Shows this help
     
-    Ejemplos de códigos de idioma:
-      es-ES   Español (España)
-      es-MX   Español (México)
-      en-US   Inglés (Estados Unidos)
-      en-GB   Inglés (Reino Unido)
-      fr-FR   Francés (Francia)
-      de-DE   Alemán (Alemania)
+    Language code examples:
+      es-ES   Spanish (Spain)
+      es-MX   Spanish (Mexico)
+      en-US   English (United States)
+      en-GB   English (United Kingdom)
+      fr-FR   French (France)
+      de-DE   German (Germany)
     
     """, stderr)
     exit(0)
 }
 
-// Función para analizar argumentos
+// Function to parse arguments
 func parseArguments() -> (locale: Locale, addNewlines: Bool) {
-    // Valor predeterminado
+    // Default value
     var languageCode = "en-US"
     var addNewlines = false
     
-    // Obtener argumentos
+    // Get arguments
     let args = CommandLine.arguments
     
-    // Procesar argumentos
+    // Process arguments
     var i = 1
     while i < args.count {
         switch args[i] {
@@ -46,24 +46,24 @@ func parseArguments() -> (locale: Locale, addNewlines: Bool) {
                 languageCode = args[i + 1]
                 i += 1
             } else {
-                fputs("Error: El argumento -l/--language requiere un valor\n", stderr)
+                fputs("Error: The -l/--language argument requires a value\n", stderr)
                 exit(1)
             }
         default:
-            fputs("Argumento desconocido: \(args[i])\n", stderr)
-            fputs("Use --help para ver las opciones disponibles\n", stderr)
+            fputs("Unknown argument: \(args[i])\n", stderr)
+            fputs("Use --help to see available options\n", stderr)
             exit(1)
         }
         i += 1
     }
     
-    // Crear objeto Locale con el código de idioma
+    // Create Locale object with language code
     let locale = Locale(identifier: languageCode)
     
-    // Validar que el idioma sea compatible
+    // Validate that the language is supported
     if SFSpeechRecognizer(locale: locale) == nil {
-        fputs("Error: El idioma '\(languageCode)' no es compatible con el reconocimiento de voz\n", stderr)
-        fputs("Ejemplos de idiomas compatibles: es-ES, en-US, fr-FR, de-DE, it-IT...\n", stderr)
+        fputs("Error: Language '\(languageCode)' is not supported for voice recognition\n", stderr)
+        fputs("Examples of supported languages: es-ES, en-US, fr-FR, de-DE, it-IT...\n", stderr)
         exit(1)
     }
     
@@ -77,32 +77,32 @@ class SpeechRecognizer {
     private var recognitionTask: SFSpeechRecognitionTask?
     private let addNewlines: Bool
     
-    // Control de salida de texto
+    // Text output control
     private var lastProcessedText = ""
     private var lastStableTime = Date()
     private var pendingText = ""
     
     init(locale: Locale, addNewlines: Bool = false) {
         guard let recognizer = SFSpeechRecognizer(locale: locale) else {
-            fatalError("No se pudo inicializar el reconocedor para el idioma \(locale.identifier)")
+            fatalError("Could not initialize recognizer for language \(locale.identifier)")
         }
         self.speechRecognizer = recognizer
         self.addNewlines = addNewlines
     }
     
     private func getNewText(from fullText: String) -> String? {
-        // Si el texto es más corto que el anterior, es una corrección completa
+        // If text is shorter than previous, it's a complete correction
         if fullText.count <= lastProcessedText.count && fullText != lastProcessedText {
             lastProcessedText = ""
             return fullText
         }
         
-        // Si es el mismo texto, no hay nada nuevo
+        // If it's the same text, there's nothing new
         if fullText == lastProcessedText {
             return nil
         }
         
-        // Extraer solo el texto nuevo
+        // Extract only new text
         let newText = String(fullText.dropFirst(lastProcessedText.count))
         lastProcessedText = fullText
         
@@ -118,11 +118,11 @@ class SpeechRecognizer {
     
     func processStdin() throws {
         guard isatty(FileHandle.standardInput.fileDescriptor) == 0 else {
-            fputs("Error: No hay entrada de audio. Use el programa con pipe\n", stderr)
+            fputs("Error: No audio input. Use the program with pipe\n", stderr)
             exit(1)
         }
 
-        fputs("Solicitando permisos de reconocimiento de voz...\n", stderr)
+        fputs("Requesting voice recognition permissions...\n", stderr)
         
         var authStatus: SFSpeechRecognizerAuthorizationStatus = .notDetermined
         let authSemaphore = DispatchSemaphore(value: 0)
@@ -133,18 +133,18 @@ class SpeechRecognizer {
         }
         
         if authSemaphore.wait(timeout: .now() + 5) == .timedOut {
-            fputs("Error: Timeout esperando autorización\n", stderr)
+            fputs("Error: Timeout waiting for authorization\n", stderr)
             exit(1)
         }
         
         guard authStatus == .authorized else {
-            fputs("Error: No hay autorización para reconocimiento de voz\n", stderr)
+            fputs("Error: No authorization for voice recognition\n", stderr)
             exit(1)
         }
         
-        fputs("Autorización concedida. Procesando audio...\n", stderr)
+        fputs("Authorization granted. Processing audio...\n", stderr)
         
-        // Configurar el formato de audio
+        // Configure audio format
         let format = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
             sampleRate: 48000,
@@ -152,22 +152,22 @@ class SpeechRecognizer {
             interleaved: true
         )!
         
-        // Crear request de reconocimiento
+        // Create recognition request
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
         guard let recognitionRequest = recognitionRequest else {
-            fputs("Error: No se pudo crear el request de reconocimiento\n", stderr)
+            fputs("Error: Could not create recognition request\n", stderr)
             exit(1)
         }
         recognitionRequest.shouldReportPartialResults = true
         recognitionRequest.addsPunctuation = true
         // recognitionRequest.addsDependentContent = true
         
-        // Crear tarea de reconocimiento
+        // Create recognition task
         recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { [weak self] result, error in
             guard let self = self else { return }
             
             if let error = error {
-                fputs("Error durante el reconocimiento: \(error.localizedDescription)\n", stderr)
+                fputs("Error during recognition: \(error.localizedDescription)\n", stderr)
                 return
             }
             
@@ -175,16 +175,16 @@ class SpeechRecognizer {
                 let transcription = result.bestTranscription.formattedString
                 
                 if result.isFinal {
-                    // Resultado final - procesar y mostrar nuevas palabras
+                    // Final result - process and show new words
                     if let newText = self.getNewText(from: transcription) {
                         self.writeToStdout(newText)
                     }
                 } else {
-                    // Resultado parcial - actualizar pero esperar a que sea estable
+                    // Partial result - update but wait for stability
                     let now = Date()
                     self.pendingText = transcription
                     
-                    // Si ha pasado suficiente tiempo desde la última actualización estable
+                    // If enough time has passed since last stable update
                     if now.timeIntervalSince(self.lastStableTime) >= 5.0 {
                         if let newText = self.getNewText(from: transcription) {
                             self.writeToStdout(newText)
@@ -195,91 +195,91 @@ class SpeechRecognizer {
             }
         }
         
-        fputs("Leyendo PCM desde stdin en streaming...\n", stderr)
+        fputs("Reading PCM from stdin in streaming...\n", stderr)
         
-        // Configurar stdin para lectura sin bloqueo
+        // Set up stdin for non-blocking read
         let fileDescriptor = FileHandle.standardInput.fileDescriptor
         let flags = fcntl(fileDescriptor, F_GETFL, 0)
         _ = fcntl(fileDescriptor, F_SETFL, flags | O_NONBLOCK)
         
-        // Calcular tamaño de buffer para 0.1 segundos (100ms) de audio
-        // 48000Hz * 2 canales * 4 bytes * 0.1s = 38400 bytes
+        // Calculate buffer size for 0.1 seconds (100ms) of audio
+        // 48000Hz * 2 channels * 4 bytes * 0.1s = 38400 bytes
         let bytesPerChunk = 38400
         let byteBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bytesPerChunk)
         defer { byteBuffer.deallocate() }
         
-        // Mantener el programa activo para streaming continuo
+        // Keep program active for continuous streaming
         var lastReadTime = Date()
         
-        // Crear un timer para verificar si debemos terminar
+        // Create timer to check if we should finish
         let timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
-            // Si no hemos recibido datos en 2 segundos, terminamos
+            // If we haven't received data in 2 seconds, we finish
             if Date().timeIntervalSince(lastReadTime) > 2.0 {
-                fputs("\nNo se han recibido datos en 2 segundos. Finalizando reconocimiento...\n", stderr)
+                fputs("\nNo data received in 2 seconds. Finishing recognition...\n", stderr)
                 self.isRunning = false
             }
         }
         
-        // Bucle principal de procesamiento
+        // Main processing loop
         while isRunning {
-            // Leer datos sin bloqueo
+            // Read data without blocking
             let bytesRead = read(fileDescriptor, byteBuffer, bytesPerChunk)
             
             if bytesRead > 0 {
                 lastReadTime = Date()
                 
-                // Calcular número de frames (muestras por canal)
+                // Calculate number of frames (samples per channel)
                 let framesRead = bytesRead / (MemoryLayout<Float32>.stride * Int(format.channelCount))
                 
-                // Crear buffer de audio
+                // Create audio buffer
                 guard let pcmBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(framesRead)) else {
-                    fputs("Error creando buffer de audio\n", stderr)
+                    fputs("Error creating audio buffer\n", stderr)
                     continue
                 }
                 
                 pcmBuffer.frameLength = AVAudioFrameCount(framesRead)
                 
-                // Copiar datos al buffer de audio
+                // Copy data to audio buffer
                 if let ptr = pcmBuffer.floatChannelData?[0] {
                     memcpy(ptr, byteBuffer, bytesRead)
                 }
                 
-                // Enviar al motor de reconocimiento
+                // Send to recognition engine
                 recognitionRequest.append(pcmBuffer)
             } else if bytesRead < 0 && errno != EAGAIN {
-                // Error de lectura que no es por no-bloqueo
-                fputs("Error leyendo desde stdin: \(String(cString: strerror(errno)))\n", stderr)
+                // Read error that's not due to non-blocking
+                fputs("Error reading from stdin: \(String(cString: strerror(errno)))\n", stderr)
                 break
             } else {
-                // Sin datos disponibles por ahora o fin de archivo
-                // Pequeña pausa para no consumir CPU
+                // No data available now or end of file
+                // Small pause to not consume CPU
                 usleep(10000) // 10ms
             }
             
-            // Procesar eventos
+            // Process events
             RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.01))
         }
         
         timer.invalidate()
         
-        // Finalizar reconocimiento
+        // Finish recognition
         recognitionRequest.endAudio()
-        fputs("Reconocimiento finalizado\n", stderr)
-        // Asegurar que el último resultado tiene un salto de línea
+        fputs("Recognition finished\n", stderr)
+        // Ensure last result has a line break
         writeToStdout("\n")
     }
 }
 
-// Manejar Ctrl+C
+// Handle Ctrl+C
 signal(SIGINT) { _ in
-    print("\nCancelando reconocimiento...")
+    fputs("\nCanceling recognition...\n", stderr)
     exit(0)
 }
 
-// Ejecutar el reconocimiento
+// Run recognition
 do {
     let args = parseArguments()
-    fputs("Idioma seleccionado para reconocimiento: \(args.locale.identifier)\n", stderr)
+    fputs("Selected language for recognition: \(args.locale.identifier)\n", stderr)
     let recognizer = SpeechRecognizer(locale: args.locale, addNewlines: args.addNewlines)
     try recognizer.processStdin()
 } catch {

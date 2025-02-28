@@ -1,10 +1,10 @@
 import Foundation
+import Dispatch
+import Darwin
 import ScreenCaptureKit
 import AVFoundation
 import CoreMedia
 import CoreAudio
-import Dispatch
-import Darwin
 
 // MARK: - Logger
 
@@ -267,3 +267,40 @@ class SystemAudioCapture: AudioCaptureServiceProtocol {
         }
     }
 }
+
+// MARK: - Main Program
+
+// Function to handle captured PCM data (in this case, write to stdout)
+func writeToStdout(_ data: Data) {
+    // Write data directly to standard output
+    FileHandle.standardOutput.write(data)
+}
+
+// Initial message
+Logger.log("System Audio Recorder (WAV output to stdout)", level: .info)
+Logger.log("You may need to grant Screen Recording permission in System Settings > Privacy & Security", level: .info)
+
+// Configure audio processor
+let audioProcessor = PCMAudioProcessor(outputStream: writeToStdout)
+
+// Create and initialize audio capture service
+let captureService = SystemAudioCapture(audioProcessor: audioProcessor)
+
+// Register signal handler
+SignalHandler.register(captureService: captureService)
+
+Logger.log("Starting system audio capture...", level: .info)
+Logger.log("Press Ctrl+C to stop recording", level: .info)
+
+// Start in an async task and keep main thread alive
+Task {
+    do {
+        try await captureService.start()
+    } catch {
+        Logger.log("Error: \(error.localizedDescription)", level: .error)
+        exit(1)
+    }
+}
+
+// Keep main thread alive until signal handler stops the program
+dispatchMain()
