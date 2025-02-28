@@ -185,7 +185,7 @@ class SpeechRecognizer {
                     self.pendingText = transcription
                     
                     // If enough time has passed since last stable update
-                    if now.timeIntervalSince(self.lastStableTime) >= 5.0 {
+                    if now.timeIntervalSince(self.lastStableTime) >= 2.0 {
                         if let newText = self.getNewText(from: transcription) {
                             self.writeToStdout(newText)
                             self.lastStableTime = now
